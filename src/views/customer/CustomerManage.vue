@@ -15,9 +15,7 @@ import {
 //1.客戶列表數據模型
 const customers = ref([])
 //2.條件搜尋數據模型
-// const nameList = ref([])
 const customerName = ref('')
-// const emailList = ref([])
 const email = ref('')
 const coachList = ref([])
 const coachId = ref([])
@@ -26,8 +24,8 @@ const gender = ref('')
 //----------------- 分頁及頁面呈現相關 -------------------
 //1.分頁元件數據模型
 const pageNum = ref(1) //當前頁碼
-const total = ref(10) //總條數
-const pageSize = ref(5) //每頁條數
+const total = ref(20) //總條數
+const pageSize = ref(20) //每頁條數
 //2.當頁面大小改變時執行，更新頁面大小
 const onSizeChange = (size) => {
   pageSize.value = size
@@ -49,8 +47,8 @@ userList()
 
 //清空篩選條件
 const clearQueryCondition = () => {
-  customerName.value = ''
-  email.value = ''
+  // customerName.value = ''
+  // email.value = ''
   coachId.value = ''
   gender.value = ''
   customerList()
@@ -100,6 +98,8 @@ const customerModel = ref({
   birthYear: '',
   phoneNumber: '',
   email: '',
+  frequency: '',
+  approach: '',
   firstLesson: '',
   lastLesson: '',
   totalLessons: '',
@@ -119,6 +119,8 @@ const resetCustomerModel = () => {
   customerModel.value.birthYear = ''
   customerModel.value.phoneNumber = ''
   customerModel.value.email = ''
+  customerModel.value.frequency = ''
+  customerModel.value.approach = ''
   customerModel.value.firstLesson = ''
   customerModel.value.lastLesson = ''
   customerModel.value.totalLessons = ''
@@ -139,7 +141,7 @@ const rules = {
     { min: 2, max: 20, message: '長度應為2~20個字符之間', trigger: 'blur' }
   ],
   gender: [{ required: true, message: '必須選擇', trigger: 'blur' }],
-  phoneNumber: [{ required: true, message: '必須輸入', trigger: 'blur' }],
+  //phoneNumber: [{ required: true, message: '必須輸入', trigger: 'blur' }],
   email: [{ type: 'email', message: '請輸入正確的電子郵件地址', trigger: ['blur', 'change'] }],
   firstLesson: [{ required: true, message: '必須輸入', trigger: 'blur' }],
   lastLesson: [{ required: true, message: '必須輸入', trigger: 'blur' }],
@@ -156,7 +158,7 @@ const showAddDialog = () => {
 //2.調用api新增客戶內容
 const addCustomer = async () => {
   let result = await customerAddService(customerModel.value)
-  ElMessage.success(result.message ? result.message : '成功新增文章')
+  ElMessage.success(result.message ? result.message : '成功新增客戶')
   resetCustomerModel()
   visibleDrawer.value = false
   customerList()
@@ -174,6 +176,8 @@ const showEditDialog = (row) => {
   customerModel.value.birthYear = row.birthYear
   customerModel.value.phoneNumber = row.phoneNumber
   customerModel.value.email = row.email
+  customerModel.value.frequency = row.frequency
+  customerModel.value.approach = row.approach
   customerModel.value.firstLesson = row.firstLesson
   customerModel.value.lastLesson = row.lastLesson
   customerModel.value.totalLessons = row.totalLessons
@@ -275,7 +279,7 @@ const filterTableData = computed(() =>
 
     <!-- 客戶列表 -->
     <el-table :data="filterTableData" class="test-container" style="width: 100%">
-      <el-table-column label="詳細資料" width="˙50">
+      <el-table-column label="詳細資訊" width="˙50">
         <template #default="{ row }">
           <el-button
             :icon="Edit"
@@ -303,11 +307,13 @@ const filterTableData = computed(() =>
           <el-input v-model="searchByEmail" size="small" placeholder="信箱搜尋" />
         </template>
       </el-table-column>
+      <el-table-column label="頻率" width="50" prop="frequency"></el-table-column>
+      <el-table-column label="來源" width="50" prop="approach"></el-table-column>
       <el-table-column label="初次來店" width="100" prop="firstLesson"></el-table-column>
       <el-table-column label="末次來店" width="100" prop="lastLesson"></el-table-column>
       <el-table-column label="總次數" width="75" prop="totalLessons"></el-table-column>
-      <el-table-column label="所屬教練" width="100" prop="coachName"></el-table-column>
       <el-table-column label="剩餘次數" width="80" prop="remainingLessons"></el-table-column>
+      <el-table-column label="所屬教練" width="100" prop="coachName"></el-table-column>
 
       <!-- 如果沒有客戶數據顯示"暫無數據" -->
       <template #empty>
@@ -319,7 +325,7 @@ const filterTableData = computed(() =>
     <el-pagination
       v-model:current-page="pageNum"
       v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 15, 20]"
+      :page-sizes="[20, 50, 100, 150]"
       layout="jumper,total,sizes,pager,next"
       background
       :total="total"
@@ -341,7 +347,7 @@ const filterTableData = computed(() =>
           </el-select>
         </el-form-item>
         <el-form-item label="出生年">
-          <el-input v-model="customerModel.birthYear" placeholder="請輸入西元年(可選填)"></el-input>
+          <el-input v-model="customerModel.birthYear" placeholder="請輸入西元年"></el-input>
         </el-form-item>
         <el-form-item label="手機" prop="phoneNumber">
           <el-input v-model="customerModel.phoneNumber" placeholder="請輸入"></el-input>
@@ -351,6 +357,12 @@ const filterTableData = computed(() =>
             v-model="customerModel.email"
             placeholder="如未輸入,系統預設為 default@gmail.com"
           ></el-input>
+        </el-form-item>
+        <el-form-item label="頻率">
+          <el-input v-model="customerModel.frequency" placeholder="請輸入"></el-input>
+        </el-form-item>
+        <el-form-item label="來源">
+          <el-input v-model="customerModel.approach" placeholder="請輸入"></el-input>
         </el-form-item>
         <el-form-item label="初次來店" prop="firstLesson">
           <el-date-picker v-model="customerModel.firstLesson" type="date" placeholder="請選擇" />
