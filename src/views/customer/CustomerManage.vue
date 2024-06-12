@@ -231,12 +231,20 @@ const deleteCustomer1 = async (id) => {
 //--------------- 篩選功能 ---------------------
 const searchByName = ref('')
 const searchByEmail = ref('')
+const searchByPhoneNumber = ref('')
 
 const filterTableData = computed(() =>
   customers.value.filter(
     (customer) =>
-      (customer.customerName.includes(searchByName.value) && !searchByEmail.value) ||
-      (!searchByName.value && customer.email.includes(searchByEmail.value))
+      (customer.customerName.includes(searchByName.value) &&
+        !searchByPhoneNumber.value &&
+        !searchByEmail.value) ||
+      (!searchByName.value &&
+        !searchByPhoneNumber.value &&
+        customer.email.includes(searchByEmail.value)) ||
+      (!searchByName.value &&
+        customer.phoneNumber.includes(searchByPhoneNumber.value) &&
+        !searchByEmail.value)
   )
 )
 </script>
@@ -302,6 +310,11 @@ const filterTableData = computed(() =>
       </el-table-column>
       <el-table-column label="出生年" width="80" prop="birthYear"></el-table-column>
       <el-table-column label="聯絡方式" width="100" prop="phoneNumber"></el-table-column>
+      <el-table-column label="聯絡方式" width="100" prop="phoneNumber">
+        <template #header>
+          <el-input v-model="searchByPhoneNumber" size="small" placeholder="手機搜尋" />
+        </template>
+      </el-table-column>
       <el-table-column label="信箱" width="150" prop="email">
         <template #header>
           <el-input v-model="searchByEmail" size="small" placeholder="信箱搜尋" />
@@ -365,10 +378,22 @@ const filterTableData = computed(() =>
           <el-input v-model="customerModel.approach" placeholder="請輸入"></el-input>
         </el-form-item>
         <el-form-item label="初次來店" prop="firstLesson">
-          <el-date-picker v-model="customerModel.firstLesson" type="date" placeholder="請選擇" />
+          <el-date-picker
+            v-model="customerModel.firstLesson"
+            type="date"
+            placeholder="請選擇"
+            format="YYYY/MM/DD"
+            value-format="YYYY-MM-DD"
+          />
         </el-form-item>
         <el-form-item label="末次來店" prop="lastLesson">
-          <el-date-picker v-model="customerModel.lastLesson" type="date" placeholder="請選擇" />
+          <el-date-picker
+            v-model="customerModel.lastLesson"
+            type="date"
+            placeholder="請選擇"
+            format="YYYY/MM/DD"
+            value-format="YYYY-MM-DD"
+          />
         </el-form-item>
         <el-form-item label="總次數">
           <el-input-number
