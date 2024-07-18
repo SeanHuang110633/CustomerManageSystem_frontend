@@ -2,13 +2,14 @@
 import { Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { userListService } from '@/api/user.js'
 import {
   customerListService,
   customerAddService,
   customerUpdateService,
-  customerDeleteService
+  customerDeleteService,
+  customerListApproachService
 } from '@/api/customer.js'
 
 //---------- 定義數據模型 ----------
@@ -17,16 +18,18 @@ const customers = ref([])
 //2.條件搜尋數據模型
 const customerName = ref('')
 const email = ref('')
-const coachList = ref([])
 const coachId = ref([])
-const gender = ref('')
+const coachList = ref([])
+const approach = ref('')
+const approachList = ref([])
 
 //----------------- 分頁及頁面呈現相關 -------------------
 //1.分頁元件數據模型
 const pageNum = ref(1) //當前頁碼
 const total = ref(20) //總條數
 const pageSize = ref(20) //每頁條數
-//2.當頁面大小改變時執行，更新頁面大小
+
+//2.當頁面總資料數改變時，更新頁面大小
 const onSizeChange = (size) => {
   pageSize.value = size
   customerList()
@@ -37,20 +40,30 @@ const onCurrentChange = (num) => {
   customerList()
 }
 
-//------------ 篩選條件下拉列表-------------------
+//------------ 篩選條件 -------------------
 //教練(系統使用者user)列表
-const userList = async () => {
+const getCoachList = async () => {
   let result = await userListService()
   coachList.value = result.data
 }
-userList()
+getCoachList()
+
+const gatApproachList = async () => {
+  let result = await customerListApproachService()
+
+  // 展開數組
+  const flattenedArray = Object.values(result.data).reduce((acc, val) => acc.concat(val), [])
+  // 使用 Set 去重
+  const approaches = Array.from(new Set(flattenedArray))
+
+  approachList.value = approaches
+}
+gatApproachList()
 
 //清空篩選條件
 const clearQueryCondition = () => {
-  // customerName.value = ''
-  // email.value = ''
   coachId.value = ''
-  gender.value = ''
+  approach.value = ''
   customerList()
 }
 
@@ -61,7 +74,7 @@ const customerList = async () => {
     pageSize: pageSize.value,
     customerName: customerName.value ? customerName.value : null,
     email: email.value ? email.value : null,
-    gender: gender.value ? gender.value : null,
+    approach: approach.value ? approach.value : null,
     coachId: coachId.value ? coachId.value : null
   }
   let result = await customerListService(params)
@@ -81,12 +94,13 @@ const customerList = async () => {
   }
 }
 customerList()
+
+// 性別轉換為中文表示
 const translateGender = (genderCode) => {
   return genderCode === 'M' ? '男' : genderCode === 'F' ? '女' : genderCode
 }
 
 //------------ 新增、修改、刪除客戶 -------------
-
 //控制編輯窗顯示
 const visibleDrawer = ref(false)
 //控制彈窗名稱(預設為新增客戶,點擊edit->編輯客戶)
@@ -105,13 +119,17 @@ const customerModel = ref({
   totalLessons: '',
   remainingLessons: '',
   coachId: '',
-  medicalHistory: '',
+  medicalHistoryCategory: [],
+  medicalHistoryBroken: '',
+  medicalHistorySurgery: '',
+  medicalHistoryOther: '',
   medication: '',
   symptoms: '',
   symptomCauses: '',
   transportationHabits: '',
   exerciseHabits: ''
 })
+
 //清空客戶資訊模型(清除前次編輯內容)
 const resetCustomerModel = () => {
   customerModel.value.customerName = ''
@@ -126,7 +144,10 @@ const resetCustomerModel = () => {
   customerModel.value.totalLessons = ''
   customerModel.value.coachId = ''
   customerModel.value.remainingLessons = ''
-  customerModel.value.medicalHistory = ''
+  customerModel.value.medicalHistoryCategory = []
+  customerModel.value.medicalHistoryBroken = ''
+  customerModel.value.medicalHistorySurgery = ''
+  customerModel.value.medicalHistoryOther = ''
   customerModel.value.medication = ''
   customerModel.value.symptoms = ''
   customerModel.value.symptomCauses = ''
@@ -148,14 +169,51 @@ const rules = {
   coachId: [{ required: true, message: '必須輸入', trigger: 'blur' }]
 }
 
-//1.新增文章
+//編輯病史：打勾時顯示對應輸入框
+const showInputA = ref(false)
+const showInputB = ref(false)
+const showInputC = ref(false)
+
+watch(
+  () => customerModel.value.medicalHistoryCategory,
+  (newVal) => {
+    console.log('==== watch the change =========')
+    console.log(newVal)
+    if (newVal == null) {
+      //新增medicalHistoryCategory字段初始為null，舊有的病史都放在medicalHistoryOther，所以特別處理這個部分
+      customerModel.value.medicalHistoryCategory = [] //初始化
+      if (customerModel.value.medicalHistoryOther !== '無') {
+        //正式時改成null
+        customerModel.value.medicalHistoryCategory.push('其他')
+      }
+    } else {
+      showInputA.value = newVal.includes('扭傷/骨折')
+      showInputB.value = newVal.includes('重大手術')
+      showInputC.value = newVal.includes('其他')
+
+      //編輯時，如果取消打勾，要清除對應input的資料
+      if (!newVal.includes('扭傷/骨折')) {
+        customerModel.value.medicalHistoryBroken = ''
+      }
+      if (!newVal.includes('重大手術')) {
+        customerModel.value.medicalHistorySurgery = ''
+      }
+      if (!newVal.includes('其他')) {
+        customerModel.value.medicalHistoryOther = ''
+      }
+    }
+  },
+  { immediate: true }
+)
+
+//1.新增客戶
 //顯示彈窗,清除customerModel(可能有舊的數據)
 const showAddDialog = () => {
   title.value = '新增客戶'
   resetCustomerModel()
   visibleDrawer.value = true
 }
-//2.調用api新增客戶內容
+//調用api新增客戶內容
 const addCustomer = async () => {
   let result = await customerAddService(customerModel.value)
   ElMessage.success(result.message ? result.message : '成功新增客戶')
@@ -167,9 +225,9 @@ const addCustomer = async () => {
 //2.編輯客戶
 //客戶資料回顯
 const showEditDialog = (row) => {
+  console.log('=============== 查看資料回顯 ================')
+  console.log(row)
   title.value = '客戶詳細資訊 (可編輯 / 刪除)'
-  //顯示編輯彈窗(同新增)
-  visibleDrawer.value = true
   //回顯數據
   customerModel.value.customerName = row.customerName
   customerModel.value.gender = row.gender
@@ -183,14 +241,18 @@ const showEditDialog = (row) => {
   customerModel.value.totalLessons = row.totalLessons
   customerModel.value.remainingLessons = row.remainingLessons
   customerModel.value.coachId = row.coachId
-  customerModel.value.medicalHistory = row.medicalHistory
+  customerModel.value.medicalHistoryCategory = row.medicalHistoryCategory
+  customerModel.value.medicalHistoryBroken = row.medicalHistoryBroken
+  customerModel.value.medicalHistorySurgery = row.medicalHistorySurgery
+  customerModel.value.medicalHistoryOther = row.medicalHistoryOther
   customerModel.value.medication = row.medication
   customerModel.value.symptoms = row.symptoms
   customerModel.value.symptomCauses = row.symptomCauses
   customerModel.value.transportationHabits = row.transportationHabits
   customerModel.value.exerciseHabits = row.exerciseHabits
-  //更新api必須傳id
-  customerModel.value.id = row.id
+  customerModel.value.id = row.id //更新時必須傳id
+  //顯示編輯彈窗(同新增)
+  visibleDrawer.value = true
 }
 //調用api更新客戶內容
 const updateCustomer = async () => {
@@ -273,20 +335,43 @@ const filterTableData = computed(() =>
           ></el-option>
         </el-select>
       </el-form-item>
-      <el-form-item label="性別: ">
-        <el-select class="gender-selector" placeholder="請選擇" v-model="gender">
-          <el-option label="男" value="M"></el-option>
-          <el-option label="女" value="F"></el-option>
+      <el-form-item label="客戶來源: ">
+        <el-select class="approach-selector" placeholder="請選擇" v-model="approach">
+          <el-option
+            v-for="approach in approachList"
+            :key="approach"
+            :label="approach"
+            :value="approach"
+          ></el-option>
         </el-select>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="customerList">搜尋</el-button>
         <el-button @click="clearQueryCondition">清空條件</el-button>
       </el-form-item>
+      <!-- 分頁元件 -->
+      <el-pagination
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :page-sizes="[1, 50, 100, 150]"
+        layout="jumper,total,sizes,pager,next"
+        background
+        :total="total"
+        @size-change="onSizeChange"
+        @current-change="onCurrentChange"
+        style="justify-content: flex-end"
+      />
     </el-form>
+    <!-- <el-divider /> -->
+    <hr style="border: none; height: 1.5px; background-color: rgba(128, 128, 128, 0.2)" />
 
     <!-- 客戶列表 -->
-    <el-table :data="filterTableData" class="test-container" style="width: 100%">
+    <el-table
+      :data="filterTableData"
+      class="test-container"
+      :default-sort="{ prop: 'lastLesson', order: 'descending' }"
+      style="width: 100%"
+    >
       <el-table-column label="詳細資訊" width="˙50">
         <template #default="{ row }">
           <el-button
@@ -322,9 +407,9 @@ const filterTableData = computed(() =>
       </el-table-column>
       <el-table-column label="頻率" width="50" prop="frequency"></el-table-column>
       <el-table-column label="來源" width="50" prop="approach"></el-table-column>
-      <el-table-column label="初次來店" width="100" prop="firstLesson"></el-table-column>
-      <el-table-column label="末次來店" width="100" prop="lastLesson"></el-table-column>
-      <el-table-column label="總次數" width="75" prop="totalLessons"></el-table-column>
+      <el-table-column label="初次來店" width="120" prop="firstLesson" sortable></el-table-column>
+      <el-table-column label="末次來店" width="120" prop="lastLesson" sortable></el-table-column>
+      <el-table-column label="總次數" width="90" prop="totalLessons" sortable></el-table-column>
       <el-table-column label="剩餘次數" width="80" prop="remainingLessons"></el-table-column>
       <el-table-column label="所屬教練" width="100" prop="coachName"></el-table-column>
 
@@ -333,19 +418,6 @@ const filterTableData = computed(() =>
         <el-empty description="暫無數據" />
       </template>
     </el-table>
-
-    <!-- 分頁元件 -->
-    <el-pagination
-      v-model:current-page="pageNum"
-      v-model:page-size="pageSize"
-      :page-sizes="[20, 50, 100, 150]"
-      layout="jumper,total,sizes,pager,next"
-      background
-      :total="total"
-      @size-change="onSizeChange"
-      @current-change="onCurrentChange"
-      style="margin-top: 20px; justify-content: flex-end"
-    />
 
     <!-- 編輯視窗 -->
     <el-drawer v-model="visibleDrawer" :title="title" direction="rtl" size="60%">
@@ -426,17 +498,40 @@ const filterTableData = computed(() =>
             >未指定的都給Robin</el-button
           >
         </el-form-item>
+
         <el-form-item label="過往病史">
-          <el-input
-            type="textarea"
-            v-model="customerModel.medicalHistory"
-            :placeholder="
-              title === '客戶詳細資訊 (可編輯 / 刪除)'
-                ? '如無相關情形請輸入「無」'
-                : '無相關情形可不輸入(預設值為「無」)'
-            "
-            rows="3"
-          ></el-input>
+          <el-checkbox-group v-model="customerModel.medicalHistoryCategory">
+            <div class="medical-history-item">
+              <el-checkbox label="扭傷/骨折" name="category" value="扭傷/骨折" />
+              <el-input
+                v-if="showInputA"
+                v-model="customerModel.medicalHistoryBroken"
+                autosize
+                type="textarea"
+                placeholder="請輸入具體狀況"
+              />
+            </div>
+            <div class="medical-history-item">
+              <el-checkbox label="重大手術" name="category" value="重大手術" />
+              <el-input
+                v-if="showInputB"
+                v-model="customerModel.medicalHistorySurgery"
+                autosize
+                type="textarea"
+                placeholder="請輸入具體狀況"
+              />
+            </div>
+            <div class="medical-history-item">
+              <el-checkbox label="其他" name="category" value="其他" />
+              <el-input
+                v-if="showInputC"
+                v-model="customerModel.medicalHistoryOther"
+                autosize
+                type="textarea"
+                placeholder="請輸入具體狀況"
+              />
+            </div>
+          </el-checkbox-group>
         </el-form-item>
         <el-form-item label="用藥情形">
           <el-input
@@ -493,10 +588,18 @@ const filterTableData = computed(() =>
           ></el-input>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="title == '新增客戶' ? addCustomer() : updateCustomer()">
+          <el-button
+            type="primary"
+            @click="title === '新增客戶' ? addCustomer() : updateCustomer()"
+          >
             確認提交
           </el-button>
-          <el-button type="danger" @click="deleteCustomer1(customerModel.id)">刪除客戶</el-button>
+          <el-button
+            v-if="title !== '新增客戶'"
+            type="danger"
+            @click="deleteCustomer1(customerModel.id)"
+            >刪除客戶</el-button
+          >
         </el-form-item>
       </el-form>
     </el-drawer>

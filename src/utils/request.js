@@ -18,7 +18,7 @@ instance.interceptors.request.use(
     loadingInstance = ElLoading.service({ fullscreen: true })
     // 使用 tokenStore 獲取 token
     const tokenStore = useTokenStore()
-    console.log('攔截器中有沒有token' + tokenStore.token)
+
     if (tokenStore.token) {
       // 如果 token 存在，則將其添加到請求頭中
       config.headers.Authorization = tokenStore.token
@@ -39,7 +39,6 @@ instance.interceptors.request.use(
 // Add a response interceptor
 instance.interceptors.response.use(
   (result) => {
-    console.log('http code 是 200')
     if (loadingInstance) {
       nextTick(() => {
         loadingInstance.close()
@@ -53,18 +52,18 @@ instance.interceptors.response.use(
 
     //操作失敗
     ElMessage.error(result.data.message ? result.data.message : '登入失敗')
-    console.log(result.data)
+
     return Promise.reject(result.data)
   },
   (err) => {
     console.log('http code 不是 200 ')
-    console.log(err)
+
     if (loadingInstance) {
       nextTick(() => {
         loadingInstance.close()
       })
     }
-    console.log(err.response)
+
     if (err.response.status === 401) {
       ElMessage.error('請先登入')
       router.push('/login')

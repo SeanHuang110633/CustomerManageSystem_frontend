@@ -60,29 +60,12 @@ const handleCommand = (command) => {
           </el-icon>
           <span>客戶基資管理</span>
         </el-menu-item>
-
-        <!-- 暫無需求先保留 -->
-        <!-- <el-menu-item index="/course/record">
+        <el-menu-item index="/customer/statistics">
           <el-icon>
             <Promotion />
           </el-icon>
-          <span>客戶訓練紀錄</span>
+          <span>客戶資訊統計</span>
         </el-menu-item>
-        <el-menu-item index="/course/plan">
-          <el-icon>
-            <Promotion />
-          </el-icon>
-          <span>自訂訓練計畫</span>
-        </el-menu-item> -->
-
-        <!-- 暫無需求先保留 -->
-        <!-- <el-menu-item index="/user/manage">
-          <el-icon>
-            <User />
-          </el-icon>
-          <span>系統用戶管理</span>
-        </el-menu-item> -->
-
         <el-menu-item index="/user/info">
           <el-icon>
             <User />
