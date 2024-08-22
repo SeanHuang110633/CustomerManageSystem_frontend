@@ -2,14 +2,13 @@
 import { Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { userListService } from '@/api/user.js'
 import {
   customerListService,
   customerAddService,
   customerUpdateService,
-  customerDeleteService,
-  customerListApproachService
+  customerDeleteService
 } from '@/api/customer.js'
 
 //---------- 定義數據模型 ----------
@@ -17,16 +16,15 @@ import {
 const customers = ref([])
 //2.條件搜尋數據模型
 const customerName = ref('')
-const email = ref('')
-const coachId = ref([])
+const phoneNumber = ref('')
+const coachId = ref()
 const coachList = ref([])
-const approach = ref('')
-const approachList = ref([])
+// const customerNameList = ref([])
 
 //----------------- 分頁及頁面呈現相關 -------------------
 //1.分頁元件數據模型
 const pageNum = ref(1) //當前頁碼
-const total = ref(20) //總條數
+const total = ref(20) //當頁總條數
 const pageSize = ref(20) //每頁條數
 
 //2.當頁面總資料數改變時，更新頁面大小
@@ -48,42 +46,32 @@ const getCoachList = async () => {
 }
 getCoachList()
 
-const gatApproachList = async () => {
-  let result = await customerListApproachService()
-
-  // 展開數組
-  const flattenedArray = Object.values(result.data).reduce((acc, val) => acc.concat(val), [])
-  // 使用 Set 去重
-  const approaches = Array.from(new Set(flattenedArray))
-
-  approachList.value = approaches
-}
-gatApproachList()
-
 //清空篩選條件
 const clearQueryCondition = () => {
   coachId.value = ''
-  approach.value = ''
+  customerName.value = ''
+  phoneNumber.value = ''
   customerList()
 }
 
 //-------------- 獲取客戶列表 ---------------
+const loading = ref(true) // 控制加載效果
 const customerList = async () => {
-  let params = {
+  let customerQueryReqeust = {
     pageNum: pageNum.value,
     pageSize: pageSize.value,
     customerName: customerName.value ? customerName.value : null,
-    email: email.value ? email.value : null,
-    approach: approach.value ? approach.value : null,
+    phoneNumber: phoneNumber.value ? phoneNumber.value : null,
     coachId: coachId.value ? coachId.value : null
   }
-  let result = await customerListService(params)
+
+  let result = await customerListService(customerQueryReqeust)
 
   //渲染視圖
-  total.value = result.data.total
+  total.value = result.data.total //修改當頁總條數
   customers.value = result.data.items
 
-  //處理數據:
+  //處理數據:將coachId轉為coachName (todo:可以簡單一點吧)
   for (let i in customers.value) {
     let customer = customers.value[i]
     for (let j in coachList.value) {
@@ -92,6 +80,8 @@ const customerList = async () => {
       }
     }
   }
+
+  loading.value = false
 }
 customerList()
 
@@ -113,7 +103,10 @@ const customerModel = ref({
   phoneNumber: '',
   email: '',
   frequency: '',
-  approach: '',
+  regularExercises: [],
+  otherExercises: '',
+  approaches: [],
+  otherApproaches: '',
   firstLesson: '',
   lastLesson: '',
   totalLessons: '',
@@ -126,6 +119,7 @@ const customerModel = ref({
   medication: '',
   symptoms: '',
   symptomCauses: '',
+  transportationCategory: [],
   transportationHabits: '',
   exerciseHabits: ''
 })
@@ -138,7 +132,10 @@ const resetCustomerModel = () => {
   customerModel.value.phoneNumber = ''
   customerModel.value.email = ''
   customerModel.value.frequency = ''
-  customerModel.value.approach = ''
+  customerModel.value.regularExercises = []
+  customerModel.value.otherExercises = ''
+  customerModel.value.approaches = []
+  customerModel.value.otherApproaches = ''
   customerModel.value.firstLesson = ''
   customerModel.value.lastLesson = ''
   customerModel.value.totalLessons = ''
@@ -151,6 +148,7 @@ const resetCustomerModel = () => {
   customerModel.value.medication = ''
   customerModel.value.symptoms = ''
   customerModel.value.symptomCauses = ''
+  customerModel.value.transportationCategory = []
   customerModel.value.transportationHabits = ''
   customerModel.value.exerciseHabits = ''
 }
@@ -169,47 +167,17 @@ const rules = {
   coachId: [{ required: true, message: '必須輸入', trigger: 'blur' }]
 }
 
-//編輯病史：打勾時顯示對應輸入框
-const showInputA = ref(false)
-const showInputB = ref(false)
-const showInputC = ref(false)
-
-watch(
-  () => customerModel.value.medicalHistoryCategory,
-  (newVal) => {
-    console.log('==== watch the change =========')
-    console.log(newVal)
-    if (newVal == null) {
-      //新增medicalHistoryCategory字段初始為null，舊有的病史都放在medicalHistoryOther，所以特別處理這個部分
-      customerModel.value.medicalHistoryCategory = [] //初始化
-      if (customerModel.value.medicalHistoryOther !== '無') {
-        //正式時改成null
-        customerModel.value.medicalHistoryCategory.push('其他')
-      }
-    } else {
-      showInputA.value = newVal.includes('扭傷/骨折')
-      showInputB.value = newVal.includes('重大手術')
-      showInputC.value = newVal.includes('其他')
-
-      //編輯時，如果取消打勾，要清除對應input的資料
-      if (!newVal.includes('扭傷/骨折')) {
-        customerModel.value.medicalHistoryBroken = ''
-      }
-      if (!newVal.includes('重大手術')) {
-        customerModel.value.medicalHistorySurgery = ''
-      }
-      if (!newVal.includes('其他')) {
-        customerModel.value.medicalHistoryOther = ''
-      }
-    }
-  },
-  { immediate: true }
-)
-
 //1.新增客戶
 //顯示彈窗,清除customerModel(可能有舊的數據)
 const showAddDialog = () => {
   title.value = '新增客戶'
+  // 初始化所有欄位
+  otherExercisesInput.value = false
+  otherApproachesInput.value = false
+  brokenInput.value = false
+  surgeryInput.value = false
+  otherInput.value = false
+  oldApproaches.value = ''
   resetCustomerModel()
   visibleDrawer.value = true
 }
@@ -222,12 +190,67 @@ const addCustomer = async () => {
   customerList()
 }
 
-//2.編輯客戶
+// 2.編輯客戶
+// 顯示手動輸入框
+const otherExercisesInput = ref(false)
+const otherApproachesInput = ref(false)
+const brokenInput = ref(false)
+const surgeryInput = ref(false)
+const otherInput = ref(false)
+
+// 顯示原本的得知管道
+const oldApproaches = ref('')
+
+// 控制輸入框顯示&取消勾選時清空輸入框(沒送出更新就不會真的清空數據)
+const showOtherExercisesInput = () => {
+  if (otherExercisesInput.value) {
+    otherExercisesInput.value = false
+    customerModel.value.otherExercises = ''
+  } else {
+    otherExercisesInput.value = true
+  }
+}
+
+const showOtherApproachesInput = () => {
+  if (otherApproachesInput.value) {
+    otherApproachesInput.value = false
+    customerModel.value.otherApproaches = ''
+  } else {
+    otherApproachesInput.value = true
+  }
+}
+
+const showBrokenInput = () => {
+  if (brokenInput.value) {
+    brokenInput.value = false
+    customerModel.value.medicalHistoryBroken = ''
+  } else {
+    brokenInput.value = true
+  }
+}
+
+const showSurgeryInput = () => {
+  if (surgeryInput.value) {
+    surgeryInput.value = false
+    customerModel.value.medicalHistorySurgery = ''
+  } else {
+    surgeryInput.value = true
+  }
+}
+
+const showOtherInput = () => {
+  if (otherInput.value) {
+    otherInput.value = false
+    customerModel.value.medicalHistoryOther = ''
+  } else {
+    otherInput.value = true
+  }
+}
 //客戶資料回顯
 const showEditDialog = (row) => {
   console.log('=============== 查看資料回顯 ================')
   console.log(row)
-  title.value = '客戶詳細資訊 (可編輯 / 刪除)'
+  title.value = '編輯/刪除客戶 '
   //回顯數據
   customerModel.value.customerName = row.customerName
   customerModel.value.gender = row.gender
@@ -235,7 +258,10 @@ const showEditDialog = (row) => {
   customerModel.value.phoneNumber = row.phoneNumber
   customerModel.value.email = row.email
   customerModel.value.frequency = row.frequency
-  customerModel.value.approach = row.approach
+  customerModel.value.regularExercises = row.regularExercises
+  customerModel.value.otherExercises = row.otherExercises
+  customerModel.value.approaches = row.approaches
+  customerModel.value.otherApproaches = row.otherApproaches
   customerModel.value.firstLesson = row.firstLesson
   customerModel.value.lastLesson = row.lastLesson
   customerModel.value.totalLessons = row.totalLessons
@@ -248,17 +274,50 @@ const showEditDialog = (row) => {
   customerModel.value.medication = row.medication
   customerModel.value.symptoms = row.symptoms
   customerModel.value.symptomCauses = row.symptomCauses
+  customerModel.value.transportationCategory = row.transportationCategory
   customerModel.value.transportationHabits = row.transportationHabits
   customerModel.value.exerciseHabits = row.exerciseHabits
   customerModel.value.id = row.id //更新時必須傳id
-  //顯示編輯彈窗(同新增)
+
+  // 回顯原本的得知管道
+  oldApproaches.value = row.oldApproaches
+
+  /** 如果手動輸入的欄位(其他、骨折等等)有值，要顯示input
+   * 沒值，要隱藏input */
+  if (!isEmpty(row.otherExercises)) {
+    otherExercisesInput.value = true
+  } else {
+    otherExercisesInput.value = false
+  }
+  if (!isEmpty(row.otherApproaches)) {
+    otherApproachesInput.value = true
+  } else {
+    otherApproachesInput.value = false
+  }
+  if (!isEmpty(row.medicalHistoryBroken)) {
+    brokenInput.value = true
+  } else {
+    brokenInput.value = false
+  }
+  if (!isEmpty(row.medicalHistorySurgery)) {
+    surgeryInput.value = true
+  } else {
+    surgeryInput.value = false
+  }
+  if (!isEmpty(row.medicalHistoryOther)) {
+    otherInput.value = true
+  } else {
+    otherInput.value = false
+  }
+
+  //資料都準備好後，顯示編輯彈窗(同新增)
   visibleDrawer.value = true
 }
 //調用api更新客戶內容
 const updateCustomer = async () => {
   let result = await customerUpdateService(customerModel.value)
   ElMessage.success(result.message ? result.message : '成功編輯客戶資訊')
-  //刷新頁面，清空數據，顯示編輯後客戶，隱藏彈窗
+  //刷新頁面，清空編輯數據，顯示編輯後客戶，隱藏彈窗
   customerList()
   resetCustomerModel()
   visibleDrawer.value = false
@@ -309,6 +368,15 @@ const filterTableData = computed(() =>
         !searchByEmail.value)
   )
 )
+
+//字符串判空的函數
+const isEmpty = (str) => {
+  if (str === null || str === '') {
+    return true
+  } else {
+    return false
+  }
+}
 </script>
 
 <template>
@@ -335,15 +403,23 @@ const filterTableData = computed(() =>
           ></el-option>
         </el-select>
       </el-form-item>
-      <el-form-item label="客戶來源: ">
-        <el-select class="approach-selector" placeholder="請選擇" v-model="approach">
-          <el-option
-            v-for="approach in approachList"
-            :key="approach"
-            :label="approach"
-            :value="approach"
-          ></el-option>
-        </el-select>
+      <el-form-item label="姓名搜尋: ">
+        <el-input
+          v-model="customerName"
+          style="width: 150px"
+          placeholder="輸入要查詢的客戶名"
+          :prefix-icon="Search"
+          clearable
+        />
+      </el-form-item>
+      <el-form-item label="手機搜尋: ">
+        <el-input
+          v-model="phoneNumber"
+          style="width: 180px"
+          placeholder="輸入要查詢的客戶手機"
+          :prefix-icon="Search"
+          clearable
+        />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="customerList">搜尋</el-button>
@@ -367,11 +443,15 @@ const filterTableData = computed(() =>
 
     <!-- 客戶列表 -->
     <el-table
+      v-loading.fullscreen.lock="loading"
+      element-loading-text="數據載入中......"
+      element-loading-background="rgba(122, 122, 122, 0.8)"
       :data="filterTableData"
       class="test-container"
       :default-sort="{ prop: 'lastLesson', order: 'descending' }"
       style="width: 100%"
     >
+      <!-- 詳細資訊 -->
       <el-table-column label="詳細資訊" width="˙50">
         <template #default="{ row }">
           <el-button
@@ -383,34 +463,45 @@ const filterTableData = computed(() =>
           ></el-button>
         </template>
       </el-table-column>
+      <!-- 姓名欄 -->
       <el-table-column label="姓名" width="90" prop="customerName">
         <template #header>
           <el-input v-model="searchByName" size="small" placeholder="姓名搜尋" />
         </template>
       </el-table-column>
+      <!-- 性別欄 -->
       <el-table-column label="性別" width="70" prop="gender">
         <template #default="{ row }">
           {{ translateGender(row.gender) }}
         </template>
       </el-table-column>
+      <!-- 出生年欄 -->
       <el-table-column label="出生年" width="80" prop="birthYear"></el-table-column>
-      <el-table-column label="聯絡方式" width="100" prop="phoneNumber"></el-table-column>
+      <!-- 聯絡方式欄 -->
       <el-table-column label="聯絡方式" width="100" prop="phoneNumber">
         <template #header>
           <el-input v-model="searchByPhoneNumber" size="small" placeholder="手機搜尋" />
         </template>
       </el-table-column>
+      <!-- 信箱欄 -->
       <el-table-column label="信箱" width="150" prop="email">
         <template #header>
           <el-input v-model="searchByEmail" size="small" placeholder="信箱搜尋" />
         </template>
       </el-table-column>
+      <!-- 頻率欄 -->
       <el-table-column label="頻率" width="50" prop="frequency"></el-table-column>
-      <el-table-column label="來源" width="50" prop="approach"></el-table-column>
+      <!-- 來源欄 -->
+      <el-table-column label="來源" width="50" prop="approaches"></el-table-column>
+      <!-- 初次來店欄 -->
       <el-table-column label="初次來店" width="120" prop="firstLesson" sortable></el-table-column>
+      <!-- 末次來店 -->
       <el-table-column label="末次來店" width="120" prop="lastLesson" sortable></el-table-column>
+      <!-- 總次數 -->
       <el-table-column label="總次數" width="90" prop="totalLessons" sortable></el-table-column>
+      <!-- 剩餘次數 -->
       <el-table-column label="剩餘次數" width="80" prop="remainingLessons"></el-table-column>
+      <!-- 所屬教練 -->
       <el-table-column label="所屬教練" width="100" prop="coachName"></el-table-column>
 
       <!-- 如果沒有客戶數據顯示"暫無數據" -->
@@ -420,10 +511,36 @@ const filterTableData = computed(() =>
     </el-table>
 
     <!-- 編輯視窗 -->
-    <el-drawer v-model="visibleDrawer" :title="title" direction="rtl" size="60%">
+    <el-drawer v-if="visibleDrawer" v-model="visibleDrawer" direction="rtl" size="60%" madal="true">
+      <template #header="{ titleId, titleClass }">
+        <h4 :id="titleId" :class="titleClass">{{ title }}</h4>
+        <el-button
+          size="large"
+          type="primary"
+          round
+          @click="title === '新增客戶' ? addCustomer() : updateCustomer()"
+        >
+          確認提交
+        </el-button>
+        <el-button
+          v-if="title !== '新增客戶'"
+          size="large"
+          type="danger"
+          round
+          @click="deleteCustomer1(customerModel.id)"
+        >
+          刪除客戶
+        </el-button>
+      </template>
+      <!-- 分隔線 -->
+      <hr style="border: none; height: 1.5px; background-color: rgba(128, 128, 128, 0.2)" />
       <el-form :model="customerModel" label-width="100px" :rules="rules">
         <el-form-item label="姓名" prop="customerName">
-          <el-input v-model="customerModel.customerName" placeholder="請輸入"></el-input>
+          <el-input
+            v-model="customerModel.customerName"
+            style="width: 240px"
+            placeholder="請輸入"
+          ></el-input>
         </el-form-item>
         <el-form-item label="性別" prop="gender">
           <el-select placeholder="請選擇" v-model="customerModel.gender">
@@ -432,22 +549,94 @@ const filterTableData = computed(() =>
           </el-select>
         </el-form-item>
         <el-form-item label="出生年">
-          <el-input v-model="customerModel.birthYear" placeholder="請輸入西元年"></el-input>
+          <el-input
+            v-model="customerModel.birthYear"
+            style="width: 150px"
+            placeholder="請輸入西元年"
+          ></el-input>
         </el-form-item>
         <el-form-item label="手機" prop="phoneNumber">
-          <el-input v-model="customerModel.phoneNumber" placeholder="請輸入"></el-input>
+          <el-input
+            v-model="customerModel.phoneNumber"
+            style="width: 200px"
+            placeholder="請輸入"
+          ></el-input>
         </el-form-item>
         <el-form-item label="信箱" prop="email">
           <el-input
             v-model="customerModel.email"
+            style="width: 420px"
             placeholder="如未輸入,系統預設為 default@gmail.com"
           ></el-input>
         </el-form-item>
-        <el-form-item label="頻率">
-          <el-input v-model="customerModel.frequency" placeholder="請輸入"></el-input>
+        <el-form-item label="交通習慣">
+          <el-checkbox-group v-model="customerModel.transportationCategory">
+            <el-checkbox label="步行" name="transportationCategory" value="步行" />
+            <el-checkbox label="機車" name="transportationCategory" value="機車" />
+            <el-checkbox label="汽車" name="transportationCategory" value="汽車" />
+            <el-checkbox label="大眾運輸" name="transportationCategory" value="大眾運輸" />
+          </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="運動頻率(每周)">
+          <el-input
+            v-model="customerModel.frequency"
+            placeholder="請輸入常規體能活動頻率(每周)"
+            style="width: 250px; padding-left: 5px"
+          />
+          <el-checkbox-group v-model="customerModel.regularExercises">
+            <el-checkbox label="健身" name="regularExercises" value="健身" />
+            <el-checkbox label="籃球" name="regularExercises" value="籃球" />
+            <el-checkbox label="排球" name="regularExercises" value="排球" />
+            <el-checkbox label="慢跑" name="regularExercises" value="慢跑" />
+            <el-checkbox label="瑜珈" name="regularExercises" value="瑜珈" />
+            <el-checkbox label="羽球" name="regularExercises" value="羽球" />
+            <el-checkbox label="棒球" name="regularExercises" value="棒球" />
+            <el-checkbox label="游泳" name="regularExercises" value="游泳" />
+            <el-checkbox label="飛輪" name="regularExercises" value="飛輪" />
+            <el-checkbox label="舞蹈類" name="regularExercises" value="舞蹈類" />
+            <el-checkbox label="有氧拳擊" name="regularExercises" value="有氧拳擊" />
+            <el-checkbox
+              label="其他"
+              name="regularExercises"
+              value="其他"
+              @change="showOtherExercisesInput"
+            />
+            <el-input
+              v-if="otherExercisesInput"
+              v-model="customerModel.otherExercises"
+              placeholder="請輸入其他運動"
+              size="small"
+              style="display: inline; padding-left: 5px"
+            ></el-input>
+          </el-checkbox-group>
         </el-form-item>
         <el-form-item label="來源">
-          <el-input v-model="customerModel.approach" placeholder="請輸入"></el-input>
+          <div style="margin-right: 15px">
+            <el-tag
+              v-if="!isEmpty(oldApproaches) && isEmpty(customerModel.otherApproaches)"
+              type="success"
+              >{{ oldApproaches }}</el-tag
+            >
+          </div>
+          <div>
+            <el-checkbox-group v-model="customerModel.approaches">
+              <el-checkbox label="親友介紹" name="approach" value="親友介紹" />
+              <el-checkbox label="網路社群" name="approach" value="網路社群" />
+              <el-checkbox
+                label="其他"
+                name="approach"
+                value="其他"
+                @change="showOtherApproachesInput"
+              />
+              <el-input
+                v-if="otherApproachesInput"
+                v-model="customerModel.otherApproaches"
+                placeholder="請輸入其他得知管道"
+                size="small"
+                style="display: inline; padding-left: 5px"
+              ></el-input>
+            </el-checkbox-group>
+          </div>
         </el-form-item>
         <el-form-item label="初次來店" prop="firstLesson">
           <el-date-picker
@@ -495,41 +684,71 @@ const filterTableData = computed(() =>
             ></el-option>
           </el-select>
           <el-button type="info" disabled link style="margin-left: 20px"
-            >未指定的都給Robin</el-button
+            >未指定的預設給Robin</el-button
           >
         </el-form-item>
 
-        <el-form-item label="過往病史">
+        <el-form-item label="傷病史">
           <el-checkbox-group v-model="customerModel.medicalHistoryCategory">
-            <div class="medical-history-item">
-              <el-checkbox label="扭傷/骨折" name="category" value="扭傷/骨折" />
+            <el-checkbox label="高血壓" name="medicalHistoryCategory" value="高血壓" />
+            <el-checkbox label="心血管疾病" name="medicalHistoryCategory" value="心血管疾病" />
+            <el-checkbox label="中風" name="medicalHistoryCategory" value="中風" />
+            <el-checkbox label="糖尿病" name="medicalHistoryCategory" value="糖尿病" />
+            <el-checkbox label="痛風" name="medicalHistoryCategory" value="痛風" />
+            <el-checkbox label="氣喘" name="medicalHistoryCategory" value="氣喘" />
+            <el-checkbox label="癲癇" name="medicalHistoryCategory" value="癲癇" />
+            <el-checkbox label="頭暈" name="medicalHistoryCategory" value="頭暈" />
+            <el-checkbox label="癌症" name="medicalHistoryCategory" value="癌症" />
+            <el-checkbox label="骨質疏鬆" name="medicalHistoryCategory" value="骨質疏鬆" />
+            <el-checkbox label="懷孕" name="medicalHistoryCategory" value="懷孕" />
+            <el-checkbox label="脊椎側彎" name="medicalHistoryCategory" value="脊椎側彎" />
+            <el-checkbox label="常感壓力" name="medicalHistoryCategory" value="常感壓力" />
+            <!-- 扭傷/骨折 -->
+            <el-checkbox
+              label="扭傷/骨折"
+              name="medicalHistoryCategor"
+              value="扭傷/骨折"
+              @change="showBrokenInput"
+            />
+            <!-- 重大手術 -->
+            <el-checkbox
+              label="重大手術"
+              name="medicalHistoryCategory"
+              value="重大手術"
+              @change="showSurgeryInput"
+            />
+            <!-- 其他 -->
+            <el-checkbox
+              label="其他"
+              name="medicalHistoryCategory"
+              value="其他"
+              @change="showOtherInput"
+            />
+            <div>
+              <!-- 扭傷/骨折 -->
               <el-input
-                v-if="showInputA"
+                v-if="brokenInput"
                 v-model="customerModel.medicalHistoryBroken"
-                autosize
-                type="textarea"
-                placeholder="請輸入具體狀況"
-              />
-            </div>
-            <div class="medical-history-item">
-              <el-checkbox label="重大手術" name="category" value="重大手術" />
+                placeholder="請輸入扭傷/骨折部位"
+                size="small"
+                style="display: inline; padding-left: 5px"
+              ></el-input>
+              <!-- 重大手術 -->
               <el-input
-                v-if="showInputB"
+                v-if="surgeryInput"
                 v-model="customerModel.medicalHistorySurgery"
-                autosize
-                type="textarea"
-                placeholder="請輸入具體狀況"
-              />
-            </div>
-            <div class="medical-history-item">
-              <el-checkbox label="其他" name="category" value="其他" />
+                placeholder="請輸入重大手術情形"
+                size="small"
+                style="display: inline; padding-left: 5px"
+              ></el-input>
+              <!-- 其他 -->
               <el-input
-                v-if="showInputC"
+                v-if="otherInput"
                 v-model="customerModel.medicalHistoryOther"
-                autosize
-                type="textarea"
-                placeholder="請輸入具體狀況"
-              />
+                placeholder="請輸入其他情形"
+                size="small"
+                style="display: inline; padding-left: 5px"
+              ></el-input>
             </div>
           </el-checkbox-group>
         </el-form-item>
@@ -567,40 +786,6 @@ const filterTableData = computed(() =>
             rows="3"
           ></el-input>
         </el-form-item>
-        <el-form-item label="交通習慣">
-          <el-input
-            v-model="customerModel.transportationHabits"
-            :placeholder="
-              title === '客戶詳細資訊 (可編輯 / 刪除)'
-                ? '如無交通習慣請輸入「無」'
-                : '無交通習慣可不輸入(預設值為「無」)'
-            "
-          ></el-input>
-        </el-form-item>
-        <el-form-item label="運動習慣">
-          <el-input
-            v-model="customerModel.exerciseHabits"
-            :placeholder="
-              title === '客戶詳細資訊 (可編輯 / 刪除)'
-                ? '如無運動習慣請輸入「無」'
-                : '無運動習慣可不輸入(預設值為「無」)'
-            "
-          ></el-input>
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            @click="title === '新增客戶' ? addCustomer() : updateCustomer()"
-          >
-            確認提交
-          </el-button>
-          <el-button
-            v-if="title !== '新增客戶'"
-            type="danger"
-            @click="deleteCustomer1(customerModel.id)"
-            >刪除客戶</el-button
-          >
-        </el-form-item>
       </el-form>
     </el-drawer>
   </el-card>
@@ -629,5 +814,57 @@ const filterTableData = computed(() =>
   :deep(.ql-editor) {
     min-height: 100px;
   }
+}
+
+.el-drawer__header {
+  /* Button initial transparent style */
+  .el-button {
+    background-color: rgba(62, 107, 115, 0.3); /* Semi-transparent with initial color */
+    border-color: rgba(62, 107, 115, 0.5); /* Border color to match background */
+    color: white; /* Text color */
+    transition: all 0.3s; /* Smooth transition for all changes */
+  }
+
+  /* Specific styles for primary buttons */
+  .el-button--primary {
+    background-color: rgba(64, 158, 255, 0.3); /* Semi-transparent blue for primary buttons */
+    border-color: rgba(64, 158, 255, 0.5); /* Border color to match background */
+
+    &:hover {
+      background-color: rgb(64, 158, 255); /* Solid blue on hover */
+      border-color: rgb(64, 158, 255); /* Solid border color on hover */
+      color: white;
+    }
+  }
+
+  /* Specific styles for danger buttons */
+  .el-button--danger {
+    background-color: rgba(245, 108, 108, 0.3); /* Semi-transparent red for danger buttons */
+    border-color: rgba(245, 108, 108, 0.5); /* Border color to match background */
+
+    &:hover {
+      background-color: rgb(245, 108, 108); /* Solid red on hover */
+      border-color: rgb(245, 108, 108); /* Solid border color on hover */
+      color: white;
+    }
+  }
+
+  /* Button hover effect for all buttons */
+  .el-button:hover {
+    opacity: 1; /* Change to solid color on hover */
+  }
+}
+
+// 調整編輯表單組件內的間距
+:deep .el-drawer__close-btn {
+  margin-left: 30px;
+}
+
+:deep .el-drawer__header {
+  margin: 0px;
+}
+
+:deep .el-drawer__body {
+  padding-top: 5px;
 }
 </style>
