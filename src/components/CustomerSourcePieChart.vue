@@ -1,16 +1,14 @@
 <script setup>
 import { ref, onMounted, computed, watchEffect } from 'vue'
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Chart, ArcElement, Tooltip, Legend, PieController } from 'chart.js'
 import { customerListApproachService } from '@/api/customer.js'
 
 // 註冊必要的 Chart.js 組件
-Chart.register(ArcElement, Tooltip, Legend)
+Chart.register(ArcElement, Tooltip, Legend, PieController)
 
 // 響應式引用
 const chartRef = ref(null)
-const approachObject = ref({})
-const approachType = ref([])
-const approachNum = ref([])
+const approachesCountList = ref({})
 let chart = null
 
 /**
@@ -20,12 +18,8 @@ const customerList = async () => {
   try {
     const result = await customerListApproachService()
     if (result.data) {
-      approachObject.value = result.data
-      approachType.value = Object.keys(approachObject.value)
-
-      Object.values(approachObject.value).forEach((value) => {
-        approachNum.value.push(value.length)
-      })
+      console.log('圖表數據: ', result.data)
+      approachesCountList.value = result.data
     } else {
       console.error('No customer data found')
     }
@@ -36,16 +30,13 @@ const customerList = async () => {
 
 // 計算屬性: 圖表數據
 const data = computed(() => ({
-  labels: approachType.value,
+  labels: ['親友介紹', '網路社群', '其他'],
   datasets: [
     {
-      data: approachNum.value,
+      data: approachesCountList.value,
       backgroundColor: [
         'rgba(255, 99, 132, 0.8)',
         'rgba(54, 162, 235, 0.8)',
-        'rgba(255, 206, 86, 0.8)',
-        'rgba(75, 192, 192, 0.8)',
-        'rgba(100, 233, 192, 0.8)',
         'rgba(153, 102, 255, 0.8)'
       ]
     }
@@ -81,7 +72,7 @@ const options = {
 onMounted(() => {
   // 使用 watchEffect 來創建和更新圖表
   watchEffect(() => {
-    if (chartRef.value && approachNum.value.length > 0) {
+    if (chartRef.value && approachesCountList.value.length > 0) {
       // 如果已存在圖表實例,先銷毀它
       if (chart) {
         chart.destroy()

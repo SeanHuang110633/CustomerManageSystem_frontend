@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted, computed, watchEffect } from 'vue'
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Chart, ArcElement, Tooltip, Legend, PieController } from 'chart.js'
 import { customerListGenderService } from '@/api/customer.js'
 
 // 註冊必要的 Chart.js 組件
-Chart.register(ArcElement, Tooltip, Legend)
+
+Chart.register(ArcElement, Tooltip, Legend, PieController)
 
 // 響應式引用
 const chartRef = ref(null)
