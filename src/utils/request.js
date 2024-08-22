@@ -15,6 +15,7 @@ let loadingInstance = null
 // 設置請求攔截器
 instance.interceptors.request.use(
   (config) => {
+    console.log('----送發請求的API: ', config)
     loadingInstance = ElLoading.service({ fullscreen: true })
     // 使用 tokenStore 獲取 token
     const tokenStore = useTokenStore()
@@ -39,6 +40,7 @@ instance.interceptors.request.use(
 // Add a response interceptor
 instance.interceptors.response.use(
   (result) => {
+    console.log('----接收請求: ', result.data)
     if (loadingInstance) {
       nextTick(() => {
         loadingInstance.close()
