@@ -4,4 +4,8 @@
   <router-view></router-view>
 </template>
 
-<style scoped></style>
+<style>
+:root #app button {
+  font-family: 'Noto Sans TC', sans-serif;
+}
+</style>
