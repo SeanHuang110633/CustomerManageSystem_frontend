@@ -49,6 +49,9 @@ const switchChart = (chart) => {
 .page-container {
   min-height: 100%;
   box-sizing: border-box;
+  background-color: #e2e8f0;
+  color: #1e293b;
+  font-weight: bold;
 }
 
 .header {
@@ -58,10 +61,22 @@ const switchChart = (chart) => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+  color: #1e293b;
+  font-weight: bold;
 }
 
 .chart-buttons {
   display: flex;
   gap: 10px;
+
+  .el-button {
+    background-color: #94a3b8;
+    border: #94a3b8;
+
+    &:hover {
+      background-color: #64748b;
+      border-color: #64748b;
+    }
+  }
 }
 </style>

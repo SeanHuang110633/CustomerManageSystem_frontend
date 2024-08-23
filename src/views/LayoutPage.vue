@@ -53,7 +53,8 @@ const handleCommand = (command) => {
 <template>
   <el-container class="layout-container">
     <el-aside width="160px">
-      <el-menu active-text-color="#ffd04b" background-color="#232323" text-color="#fff" router>
+      <el-menu default-active="/customer/manage" router>
+        <!-- <el-menu active-text-color="#534834" background-color="#d0b481" text-color="#fff" router> -->
         <el-menu-item index="/customer/manage">
           <el-icon>
             <Promotion />
@@ -123,19 +124,41 @@ const handleCommand = (command) => {
 
   // 配置側邊欄的樣式
   .el-aside {
-    background-color: #232323; // 深色背景顏色
-  }
+    background-color: #374151; // 深色背景顏色
+    // 主選單的樣式
+    .el-menu {
+      --el-menu-bg-color: #374151; // 深色背景顏色
+      --el-menu-text-color: #f6f0e6;
+      --el-menu-active-color: #facc15;
+      border-right: none; // 移除選單右邊的邊框
 
-  // 主選單的樣式
-  .el-menu {
-    border-right: none; // 移除選單右邊的邊框
+      .item {
+        color: rgb(240, 230, 230);
+      }
+
+      .el-menu-item {
+        transition:
+          background-color 0.3s ease,
+          color 0.3s ease;
+
+        &:hover {
+          background-color: #1f2937; // 背景顏色變深
+          color: #fde68a; // 文字顏色變深
+        }
+
+        &.is-active {
+          font-weight: bold; // 選中的項目字體加粗
+        }
+      }
+    }
   }
 
   // 頭部欄位的樣式設定
   .el-header {
     height: 50px;
-    // width: 1865px;
-    background-color: #fff; // 白色背景
+    background-color: #fafaf9; // 白色背景
+    color: #1e293b;
+    font-weight: bold;
     display: flex; // 啟用彈性盒模型
     align-items: center; // 垂直居中
     justify-content: space-between; // 元素間隔均勻分布
@@ -160,12 +183,10 @@ const handleCommand = (command) => {
   }
 
   .el-main {
-    // max-height: 600px;
-    // width: 1865px;
-    // overflow: hidden;
-    // overflow-y: auto;
-    // overflow-x: auto;
-    --el-main-padding: 12px;
+    --el-main-padding: 10px;
+    background-color: #fafaf9; // 白色背景
   }
+
+  font-family: 'Noto Sans TC', sans-serif;
 }
 </style>
