@@ -2,7 +2,7 @@
 import { Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import { computed, ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { userListService } from '@/api/user.js'
 import {
   customerListService,
@@ -24,20 +24,21 @@ const coachList = ref([])
 //----------------- 分頁及頁面呈現相關 -------------------
 //1.分頁元件數據模型
 const pageNum = ref(1) //當前頁碼
-const total = ref(20) //當頁總條數
-const pageSize = ref(20) //每頁條數
+const total = ref(100) //當頁總條數
+const pageSize = ref(100) //每頁條數
 
 //2.當頁面總資料數改變時，更新頁面大小
-const onSizeChange = (size) => {
+const onSizeChange = async (size) => {
   pageSize.value = size
-  customerList()
+  loading.value = true
+  await customerList()
 }
 //3.當前頁面改變時執行，更新當前頁面
-const onCurrentChange = (num) => {
+const onCurrentChange = async (num) => {
   pageNum.value = num
-  customerList()
+  loading.value = true
+  await customerList()
 }
-
 //------------ 篩選條件 -------------------
 //教練(系統使用者user)列表
 const getCoachList = async () => {
@@ -55,8 +56,10 @@ const clearQueryCondition = () => {
 }
 
 //-------------- 獲取客戶列表 ---------------
-const loading = ref(true) // 控制加載效果
+const loading = ref(false) // 控制加載效果
 const customerList = async () => {
+  loading.value = true
+  console.log('-----開始loading')
   let customerQueryReqeust = {
     pageNum: pageNum.value,
     pageSize: pageSize.value,
@@ -65,24 +68,34 @@ const customerList = async () => {
     coachId: coachId.value ? coachId.value : null
   }
 
-  let result = await customerListService(customerQueryReqeust)
+  try {
+    let result = await customerListService(customerQueryReqeust)
 
-  //渲染視圖
-  total.value = result.data.total //修改當頁總條數
-  customers.value = result.data.items
+    //渲染視圖
+    total.value = result.data.total //修改當頁總條數
+    customers.value = result.data.items
 
-  //處理數據:將coachId轉為coachName (todo:可以簡單一點吧)
-  for (let i in customers.value) {
-    let customer = customers.value[i]
-    for (let j in coachList.value) {
-      if (customer.coachId === coachList.value[j].id) {
-        customer.coachName = coachList.value[j].username
+    //處理數據:將coachId轉為coachName
+    const coachMap = new Map()
+    for (let coach of coachList.value) {
+      coachMap.set(coach.id, coach.username)
+    }
+
+    for (let customer of customers.value) {
+      if (coachMap.has(customer.coachId)) {
+        customer.coachName = coachMap.get(customer.coachId)
       }
     }
-  }
 
-  loading.value = false
+    await nextTick() // 确保 DOM 完全更新
+  } catch (error) {
+    console.log('error masseage: ', error)
+  } finally {
+    console.log('-----loading完畢')
+    loading.value = false
+  }
 }
+
 customerList()
 
 // 性別轉換為中文表示
@@ -349,26 +362,6 @@ const deleteCustomer1 = async (id) => {
     })
 }
 
-//--------------- 篩選功能 ---------------------
-const searchByName = ref('')
-const searchByEmail = ref('')
-const searchByPhoneNumber = ref('')
-
-const filterTableData = computed(() =>
-  customers.value.filter(
-    (customer) =>
-      (customer.customerName.includes(searchByName.value) &&
-        !searchByPhoneNumber.value &&
-        !searchByEmail.value) ||
-      (!searchByName.value &&
-        !searchByPhoneNumber.value &&
-        customer.email.includes(searchByEmail.value)) ||
-      (!searchByName.value &&
-        customer.phoneNumber.includes(searchByPhoneNumber.value) &&
-        !searchByEmail.value)
-  )
-)
-
 //字符串判空的函數
 const isEmpty = (str) => {
   if (str === null || str === '') {
@@ -393,7 +386,7 @@ const isEmpty = (str) => {
 
     <!-- 篩選表單 -->
     <el-form inline>
-      <el-form-item label="所屬教練: ">
+      <el-form-item label="所屬教練: " style="color: aquamarine">
         <el-select class="coach-selector" placeholder="請選擇" v-model="coachId">
           <el-option
             v-for="c in coachList"
@@ -403,33 +396,48 @@ const isEmpty = (str) => {
           ></el-option>
         </el-select>
       </el-form-item>
+
       <el-form-item label="姓名搜尋: ">
         <el-input
           v-model="customerName"
           style="width: 150px"
           placeholder="輸入要查詢的客戶名"
           :prefix-icon="Search"
+          @keyup.enter="customerList"
           clearable
         />
       </el-form-item>
+
       <el-form-item label="手機搜尋: ">
         <el-input
           v-model="phoneNumber"
           style="width: 180px"
           placeholder="輸入要查詢的客戶手機"
           :prefix-icon="Search"
+          @keyup.enter="customerList"
           clearable
         />
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="customerList">搜尋</el-button>
-        <el-button @click="clearQueryCondition">清空條件</el-button>
+        <el-popover
+          placement="top-start"
+          :width="100"
+          trigger="hover"
+          content="輸入完按enter就好,不用點我"
+        >
+          <template #reference>
+            <el-button type="primary" @click="customerList">搜尋</el-button>
+          </template>
+        </el-popover>
+
+        <el-button type="primary" @click="clearQueryCondition">清空條件</el-button>
       </el-form-item>
+
       <!-- 分頁元件 -->
       <el-pagination
         v-model:current-page="pageNum"
         v-model:page-size="pageSize"
-        :page-sizes="[1, 50, 100, 150]"
+        :page-sizes="[100, 300, 5000, 1000]"
         layout="jumper,total,sizes,pager,next"
         background
         :total="total"
@@ -444,74 +452,46 @@ const isEmpty = (str) => {
     <!-- 客戶列表 -->
     <el-table
       v-loading.fullscreen.lock="loading"
-      element-loading-text="數據載入中......"
-      element-loading-background="rgba(122, 122, 122, 0.8)"
-      :data="filterTableData"
-      class="test-container"
-      :default-sort="{ prop: 'lastLesson', order: 'descending' }"
+      element-loading-background="rgba(255, 255, 255, 0.8)"
+      :data="customers"
       style="width: 100%"
+      :header-cell-style="{ backgroundColor: '#64748b', color: '#fff', fontWeight: 'bold' }"
+      :row-style="{ backgroundColor: '#fafaf9', fontWeight: 'bold' }"
     >
-      <!-- 詳細資訊 -->
       <el-table-column label="詳細資訊" width="˙50">
         <template #default="{ row }">
-          <el-button
-            :icon="Edit"
-            circle
-            plain
-            type="primary"
-            @click="showEditDialog(row)"
-          ></el-button>
+          <el-button :icon="Edit" circle plain type="primary" @click="showEditDialog(row)" />
         </template>
       </el-table-column>
-      <!-- 姓名欄 -->
-      <el-table-column label="姓名" width="90" prop="customerName">
-        <template #header>
-          <el-input v-model="searchByName" size="small" placeholder="姓名搜尋" />
-        </template>
-      </el-table-column>
-      <!-- 性別欄 -->
+      <el-table-column label="姓名" width="90" prop="customerName"> </el-table-column>
       <el-table-column label="性別" width="70" prop="gender">
         <template #default="{ row }">
           {{ translateGender(row.gender) }}
         </template>
       </el-table-column>
-      <!-- 出生年欄 -->
       <el-table-column label="出生年" width="80" prop="birthYear"></el-table-column>
-      <!-- 聯絡方式欄 -->
-      <el-table-column label="聯絡方式" width="100" prop="phoneNumber">
-        <template #header>
-          <el-input v-model="searchByPhoneNumber" size="small" placeholder="手機搜尋" />
-        </template>
-      </el-table-column>
-      <!-- 信箱欄 -->
-      <el-table-column label="信箱" width="150" prop="email">
-        <template #header>
-          <el-input v-model="searchByEmail" size="small" placeholder="信箱搜尋" />
-        </template>
-      </el-table-column>
-      <!-- 頻率欄 -->
-      <el-table-column label="頻率" width="50" prop="frequency"></el-table-column>
-      <!-- 來源欄 -->
+      <el-table-column label="聯絡方式" width="100" prop="phoneNumber"> </el-table-column>
+      <el-table-column label="信箱" width="150" prop="email"> </el-table-column>
       <el-table-column label="來源" width="50" prop="approaches"></el-table-column>
-      <!-- 初次來店欄 -->
-      <el-table-column label="初次來店" width="120" prop="firstLesson" sortable></el-table-column>
-      <!-- 末次來店 -->
       <el-table-column label="末次來店" width="120" prop="lastLesson" sortable></el-table-column>
-      <!-- 總次數 -->
       <el-table-column label="總次數" width="90" prop="totalLessons" sortable></el-table-column>
-      <!-- 剩餘次數 -->
       <el-table-column label="剩餘次數" width="80" prop="remainingLessons"></el-table-column>
-      <!-- 所屬教練 -->
       <el-table-column label="所屬教練" width="100" prop="coachName"></el-table-column>
 
-      <!-- 如果沒有客戶數據顯示"暫無數據" -->
       <template #empty>
         <el-empty description="暫無數據" />
       </template>
     </el-table>
 
     <!-- 編輯視窗 -->
-    <el-drawer v-if="visibleDrawer" v-model="visibleDrawer" direction="rtl" size="60%" madal="true">
+    <el-drawer
+      v-if="visibleDrawer"
+      v-model="visibleDrawer"
+      direction="rtl"
+      size="60%"
+      madal="true"
+      show-close="false"
+    >
       <template #header="{ titleId, titleClass }">
         <h4 :id="titleId" :class="titleClass">{{ title }}</h4>
         <el-button
@@ -577,7 +557,7 @@ const isEmpty = (str) => {
             <el-checkbox label="大眾運輸" name="transportationCategory" value="大眾運輸" />
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="運動頻率(每周)">
+        <el-form-item label="運動頻率(每周次數)">
           <el-input
             v-model="customerModel.frequency"
             placeholder="請輸入常規體能活動頻率(每周)"
@@ -610,7 +590,7 @@ const isEmpty = (str) => {
             ></el-input>
           </el-checkbox-group>
         </el-form-item>
-        <el-form-item label="來源">
+        <el-form-item label="得知管道">
           <div style="margin-right: 15px">
             <el-tag
               v-if="!isEmpty(oldApproaches) && isEmpty(customerModel.otherApproaches)"
@@ -795,6 +775,8 @@ const isEmpty = (str) => {
 .page-container {
   min-height: 100%;
   box-sizing: border-box;
+  background-color: #e2e8f0;
+  font-family: 'Noto Sans TC', sans-serif;
 }
 
 .header {
@@ -802,6 +784,32 @@ const isEmpty = (str) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  font-weight: bold;
+  color: #1e293b;
+
+  // 新增客戶的按鈕
+  .el-button {
+    background-color: #94a3b8;
+    border: #94a3b8;
+
+    &:hover {
+      background-color: #64748b;
+      border-color: #64748b;
+    }
+  }
+}
+
+// 表單頂部搜尋欄位的按鈕
+.el-form {
+  .el-button {
+    background-color: #94a3b8;
+    border: #94a3b8;
+
+    &:hover {
+      background-color: #64748b;
+      border-color: #64748b;
+    }
+  }
 }
 
 .el-select {
@@ -817,41 +825,34 @@ const isEmpty = (str) => {
 }
 
 .el-drawer__header {
-  /* Button initial transparent style */
-  .el-button {
-    background-color: rgba(62, 107, 115, 0.3); /* Semi-transparent with initial color */
-    border-color: rgba(62, 107, 115, 0.5); /* Border color to match background */
-    color: white; /* Text color */
-    transition: all 0.3s; /* Smooth transition for all changes */
-  }
+  background-color: #f3ead9;
 
-  /* Specific styles for primary buttons */
   .el-button--primary {
-    background-color: rgba(64, 158, 255, 0.3); /* Semi-transparent blue for primary buttons */
-    border-color: rgba(64, 158, 255, 0.5); /* Border color to match background */
+    background-color: rgba(64, 158, 255, 0.3);
+    border-color: rgba(64, 158, 255, 0.5);
 
     &:hover {
-      background-color: rgb(64, 158, 255); /* Solid blue on hover */
-      border-color: rgb(64, 158, 255); /* Solid border color on hover */
+      background-color: #334155;
+      border-color: #334155;
       color: white;
     }
   }
 
   /* Specific styles for danger buttons */
   .el-button--danger {
-    background-color: rgba(245, 108, 108, 0.3); /* Semi-transparent red for danger buttons */
-    border-color: rgba(245, 108, 108, 0.5); /* Border color to match background */
+    background-color: rgba(245, 108, 108, 0.3);
+    border-color: rgba(245, 108, 108, 0.5);
 
     &:hover {
-      background-color: rgb(245, 108, 108); /* Solid red on hover */
-      border-color: rgb(245, 108, 108); /* Solid border color on hover */
+      background-color: #b91c1c;
+      border-color: #b91c1c;
       color: white;
     }
   }
 
   /* Button hover effect for all buttons */
   .el-button:hover {
-    opacity: 1; /* Change to solid color on hover */
+    opacity: 1;
   }
 }
 
