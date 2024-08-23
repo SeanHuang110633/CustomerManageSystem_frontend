@@ -1,8 +1,7 @@
 import axios from 'axios'
 import { useTokenStore } from '@/stores'
-import { ElMessage, ElLoading } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import router from '@/router'
-import { nextTick } from 'vue'
 
 const baseURL = '/api'
 
@@ -11,13 +10,11 @@ const instance = axios.create({
   baseURL,
   timeout: 10000
 })
-let loadingInstance = null
 // 設置請求攔截器
 instance.interceptors.request.use(
   (config) => {
     console.log('----送發請求的API: ', config)
-    loadingInstance = ElLoading.service({ fullscreen: true })
-    // 使用 tokenStore 獲取 token
+
     const tokenStore = useTokenStore()
 
     if (tokenStore.token) {
@@ -27,12 +24,7 @@ instance.interceptors.request.use(
     return config
   },
   (err) => {
-    if (loadingInstance) {
-      nextTick(() => {
-        loadingInstance.close()
-      })
-    }
-    // 在請求錯誤時返回一個 rejected promise
+    console.log('----請求失敗: ', err)
     return Promise.reject(err)
   }
 )
@@ -41,11 +33,6 @@ instance.interceptors.request.use(
 instance.interceptors.response.use(
   (result) => {
     console.log('----接收請求: ', result.data)
-    if (loadingInstance) {
-      nextTick(() => {
-        loadingInstance.close()
-      })
-    }
 
     //判斷返回狀態碼
     if (result.data.code === 20010) {
@@ -58,18 +45,11 @@ instance.interceptors.response.use(
     return Promise.reject(result.data)
   },
   (err) => {
-    console.log('http code 不是 200 ')
-
-    if (loadingInstance) {
-      nextTick(() => {
-        loadingInstance.close()
-      })
-    }
-
     if (err.response.status === 401) {
       ElMessage.error('請先登入')
       router.push('/login')
     } else {
+      console.log('----響應有問題: ', err)
       ElMessage.error(err.response.data.message)
     }
 
