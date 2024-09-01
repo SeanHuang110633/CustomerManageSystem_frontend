@@ -458,25 +458,25 @@ const isEmpty = (str) => {
       :header-cell-style="{ backgroundColor: '#64748b', color: '#fff', fontWeight: 'bold' }"
       :row-style="{ backgroundColor: '#fafaf9', fontWeight: 'bold' }"
     >
-      <el-table-column label="詳細資訊" width="˙50">
+      <el-table-column label="詳細資訊" width="˙100">
         <template #default="{ row }">
           <el-button :icon="Edit" circle plain type="primary" @click="showEditDialog(row)" />
         </template>
       </el-table-column>
-      <el-table-column label="姓名" width="90" prop="customerName"> </el-table-column>
-      <el-table-column label="性別" width="70" prop="gender">
+      <el-table-column label="姓名" width="150" prop="customerName"> </el-table-column>
+      <el-table-column label="性別" width="100" prop="gender">
         <template #default="{ row }">
           {{ translateGender(row.gender) }}
         </template>
       </el-table-column>
-      <el-table-column label="出生年" width="80" prop="birthYear"></el-table-column>
-      <el-table-column label="聯絡方式" width="100" prop="phoneNumber"> </el-table-column>
-      <el-table-column label="信箱" width="150" prop="email"> </el-table-column>
-      <el-table-column label="來源" width="50" prop="approaches"></el-table-column>
-      <el-table-column label="末次來店" width="120" prop="lastLesson" sortable></el-table-column>
-      <el-table-column label="總次數" width="90" prop="totalLessons" sortable></el-table-column>
-      <el-table-column label="剩餘次數" width="80" prop="remainingLessons"></el-table-column>
-      <el-table-column label="所屬教練" width="100" prop="coachName"></el-table-column>
+      <el-table-column label="出生年" width="120" prop="birthYear"></el-table-column>
+      <el-table-column label="聯絡方式" width="200" prop="phoneNumber"> </el-table-column>
+      <el-table-column label="信箱" width="250" prop="email"> </el-table-column>
+      <el-table-column label="來源" width="200" prop="approaches"></el-table-column>
+      <el-table-column label="末次來店" width="200" prop="lastLesson" sortable></el-table-column>
+      <el-table-column label="總次數" width="100" prop="totalLessons" sortable></el-table-column>
+      <el-table-column label="剩餘次數" width="100" prop="remainingLessons"></el-table-column>
+      <el-table-column label="所屬教練" width="150" prop="coachName"></el-table-column>
 
       <template #empty>
         <el-empty description="暫無數據" />
