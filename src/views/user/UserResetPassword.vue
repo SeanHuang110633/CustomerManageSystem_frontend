@@ -51,7 +51,7 @@ const Submit = async () => {
   ElMessage.success('成功修改密碼，將跳轉登入頁')
   setTimeout(() => {
     router.push('/login')
-  }, 1500)
+  }, 1000)
   clearForm()
 }
 const tokenStore = useTokenStore()

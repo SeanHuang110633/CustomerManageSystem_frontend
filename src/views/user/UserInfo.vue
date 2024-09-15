@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import { ref } from 'vue'
 import { useUserInfoStore } from '@/stores/index.js'
 import { userInfoUpdateService } from '@/api/user.js'
+import { useRouter } from 'vue-router'
 const userInfoStore = useUserInfoStore()
 // 定義用戶資訊模型
 const userInfo = ref({ ...userInfoStore.info })
@@ -22,11 +23,16 @@ const rules = {
   ]
 }
 
+const router = useRouter()
 const updtaeUesrInfo = async () => {
   let result = await userInfoUpdateService(userInfo.value)
   ElMessage.success(result.message ? result.message : '成功更新個人資訊')
   //更新後的資料存入useUserInfoStore
   userInfoStore.setInfo(userInfo.value)
+  ElMessage.success('修改成功，請重新登入( 將跳轉登入頁 )')
+  setTimeout(() => {
+    router.push('/login')
+  }, 1000)
 }
 </script>
 

@@ -2,7 +2,7 @@
 import { Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import { nextTick, ref } from 'vue'
+import { ref } from 'vue'
 import { userListService } from '@/api/user.js'
 import {
   customerListService,
@@ -86,8 +86,6 @@ const customerList = async () => {
         customer.coachName = coachMap.get(customer.coachId)
       }
     }
-
-    await nextTick() // 确保 DOM 完全更新
   } catch (error) {
     console.log('error masseage: ', error)
   } finally {
@@ -95,7 +93,6 @@ const customerList = async () => {
     loading.value = false
   }
 }
-
 customerList()
 
 // 性別轉換為中文表示
